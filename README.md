@@ -97,6 +97,7 @@ These are all the operators, in increasing order of precedence:
 	*
 	- (unary)
 	function application
+	=
 
 `&&` and `||` are logical operators, using shortcut evaluation.  That
 means `&&` will not evaluate its right hand side if the left hand side

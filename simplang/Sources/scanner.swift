@@ -4,19 +4,119 @@ import Foundation
  *  Token
  * *****************************************/
 
-let TokenKeywords = [
-  "let", "and", "in", "if", "then", "else", "recur", "loop", "end"
-]
+enum TokenKeyword: Int {
+    case Let = 1
+    case And, In, If, Then, Else, Recur, Loop, End
+    var simpleDescription: String {
+        get {
+            switch self {
+            case .Let:
+                return "let"
+            case .And:
+                return "and"
+            case .In:
+                return "in"
+            case .If:
+                return "if"
+            case .Then:
+                return "then"
+            case .Else:
+                return "else"
+            case .Recur:
+                return "recur"
+            case .Loop:
+                return "loop"
+            case .End:
+                return "end"
+            }
 
-let TokenSingleOperators = [
-  "(", ")", "!", "<", "+", "*", "-"
-]
+        }
+    }
+}
 
-let TokenDoubleOperators = [
-  "=", "&", "|"
-]
+enum TokenOperator: Int {
+    case OpenParen = 1
+    case CloseParen, Not, LessThan, Plus, Multiply, Negative, Assign, DividingLine, Equals, And, Or
+    var simpleDescription: String {
+        get {
+            switch self {
+            case .OpenParen:
+                return "("
+            case .CloseParen:
+                return ")"
+            case .Not:
+                return "!"
+            case .LessThan:
+                return "<"
+            case .Plus:
+                return "+"
+            case .Multiply:
+                return "*"
+            case .Negative:
+                return "-"
+            case .Assign:
+                return "="
+            case .DividingLine:
+                assert(false, "Token: There is no reason to use this")
+            case .Equals:
+                return "=="
+            case .And:
+                return "&&"
+            case .Or:
+                return "||"
+            }
+        }
+    }
+}
 
-let AllOperators = TokenSingleOperators + ["="] + TokenDoubleOperators.map({ (op) -> String in return op + op })
+var _SingleOperatorTokens : [String]?
+var SingleOperatorTokens: [String] {
+    if _SingleOperatorTokens == nil {
+        var index = 1
+        var operatorTokens = [String]()
+        while let op = TokenOperator(rawValue: index) {
+            if index < TokenOperator.DividingLine.rawValue {
+                operatorTokens.append(op.simpleDescription)
+                index += 1
+            } else {
+                break
+            }
+        }
+        _SingleOperatorTokens = operatorTokens
+    }
+    return _SingleOperatorTokens!
+}
+
+var _DoubleOperatorTokens : [String]?
+var DoubleOperatorTokens: [String] {
+    if _DoubleOperatorTokens == nil {
+        var index = TokenOperator.DividingLine.rawValue + 1
+        var operatorTokens = [String]()
+        while let op = TokenOperator(rawValue: index) {
+            operatorTokens.append(op.simpleDescription)
+            index += 1
+        }
+        _DoubleOperatorTokens = operatorTokens
+    }
+    return _DoubleOperatorTokens!
+}
+
+var _TokenKeywords : [String]?
+var TokenKeywords: [String] {
+    if _TokenKeywords == nil {
+        var index = 1
+        var keywords = [String]()
+        while let kw = TokenKeyword(rawValue: index) {
+            keywords.append(kw.simpleDescription)
+            index += 1
+        }
+        _TokenKeywords = keywords
+    }
+    return _TokenKeywords!
+}
+
+let AllOperators = SingleOperatorTokens + DoubleOperatorTokens
+
 
 enum TokenType {
     case Keyword, Identifier, Integer, Operator
@@ -38,14 +138,15 @@ enum TokenType {
 
 protocol Token {
     var type: TokenType { get set }
-    var simpleDescription : String { get }
+    var simpleDescription: String { get }
+    var scannerDescription: String { get }
 }
 
-class TokenKeyword : Token {
+class KeywordToken : Token {
     var type: TokenType = TokenType.Keyword
     var keyword : String {
         willSet {
-            assert(TokenKeywords.contains(newValue), "Tried creating keyword token with non-keyword")
+            assert(TokenKeywords.contains(newValue), "Token: Tried creating keyword token with non-keyword")
         }
     }
 
@@ -54,15 +155,19 @@ class TokenKeyword : Token {
     }
 
     var simpleDescription: String {
+        return "\(keyword)"
+    }
+
+    var scannerDescription: String {
         return "\(type.simpleDescription) \(keyword)"
     }
 }
 
-class TokenIdentifier : Token {
+class IdentifierToken : Token {
     var type: TokenType = TokenType.Identifier
     var name : String {
         willSet {
-            assert(!TokenKeywords.contains(newValue), "Tried creating identifier token with keyword")
+            assert(!TokenKeywords.contains(newValue), "Token: Tried creating identifier token with keyword")
         }
     }
 
@@ -71,30 +176,38 @@ class TokenIdentifier : Token {
     }
 
     var simpleDescription: String {
+        return "\(name)"
+    }
+
+    var scannerDescription: String {
         return "\(type.simpleDescription) \(name)"
     }
 }
 
-class TokenInteger : Token {
+class IntegerToken : Token {
     var type: TokenType = TokenType.Integer
     var value : Int
 
     init(value: Int?) {
-        assert(value != nil, "Integer token value is nil")
+        assert(value != nil, "Token: Integer token value is nil")
         self.value = value!
     }
 
     var simpleDescription: String {
         return "\(type.simpleDescription) \(value.description)"
     }
+
+    var scannerDescription: String {
+        return "\(type.simpleDescription) \(value)"
+    }
 }
 
 
-class TokenOperator : Token {
+class OperatorToken : Token {
     var type: TokenType = TokenType.Operator
     var op : String {
         willSet {
-            assert(AllOperators.contains(newValue), "Tried creating operator token with non-operator")
+            assert(AllOperators.contains(newValue), "Token: Tried creating operator token with non-operator")
         }
     }
 
@@ -103,15 +216,12 @@ class TokenOperator : Token {
     }
 
     var simpleDescription: String {
+        return "\(op)"
+    }
+
+    var scannerDescription: String {
         return "\(type.simpleDescription) \(op)"
     }
-}
-
-func charToString(character: Character?) -> String? {
-    if character != nil {
-        return String(describing: character!)
-    }
-    return nil
 }
 
 /******************************************
@@ -137,7 +247,7 @@ class Scanner {
             self.nextIndex = view.startIndex
             self.nextChar = view[nextIndex!]
         } catch let error as NSError {
-            print("Error getting contents from \(sourcePath): \(error)")
+            print("Scanner: Error getting contents from \(sourcePath): \(error)")
             exit(1)
         }
         tokenize()
@@ -180,31 +290,31 @@ class Scanner {
                     name += String(consume())
                 }
                 if TokenKeywords.contains(name) {
-                    tokens.append(TokenKeyword(keyword: name))
+                    tokens.append(KeywordToken(keyword: name))
                 } else {
-                    tokens.append(TokenIdentifier(name: name))
+                    tokens.append(IdentifierToken(name: name))
                 }
             } else if CharacterSet.decimalDigits.contains(currentChar) {
                 var number = String(currentChar)
                 while CharacterSet.decimalDigits.contains(nextChar) {
                     number += String(consume())
                 }
-                tokens.append(TokenInteger(value:Int(number)))
+                tokens.append(IntegerToken(value:Int(number)))
 
-            } else if TokenSingleOperators.contains(String(currentChar)) {
-                tokens.append(TokenOperator(op: String(currentChar)))
+            } else if SingleOperatorTokens.contains(String(currentChar)) && !isEqualSign(char: currentChar) {
+                tokens.append(OperatorToken(op: String(currentChar)))
 
-            } else if TokenDoubleOperators.contains(String(currentChar)) {
+            } else if DoubleOperatorTokens.contains(String(currentChar) + String(currentChar)) {
                 if isEqualSign(char: currentChar) {
                     if !isEqualSign(char: nextChar) {
-                        tokens.append(TokenOperator(op: String(currentChar)))
+                        tokens.append(OperatorToken(op: String(currentChar)))
                         continue
                     }
                 }
-                tokens.append(TokenOperator(op: String(currentChar) + String(consume())))
+                tokens.append(OperatorToken(op: String(currentChar) + String(consume())))
 
             } else {
-                assert(false, "Something wrong happened in scanner")
+                assert(false, "Scanner: Something wrong happened")
             }
         }
     }

@@ -7,7 +7,12 @@ if CommandLine.arguments.count != 2 {
 } else {
     let sourcePath = CommandLine.arguments[1]
     var scanner = Scanner(sourcePath: sourcePath)
-    for token in scanner.tokens {
-        print("\(token.simpleDescription)")
-    }
+    // scanner shit
+//    for token in scanner.tokens {
+//        print("\(token.scannerDescription)")
+//    }
+
+    // parser shit
+    var parser = Parser(tokens: scanner.tokens)
+    print("\(parser.syntaxTreeString)")
 }

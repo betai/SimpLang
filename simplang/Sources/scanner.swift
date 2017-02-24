@@ -4,7 +4,7 @@ import Foundation
  *  Token
  * *****************************************/
 
-enum TokenKeyword: Int {
+enum Keyword: Int {
     case Let = 1
     case And, In, If, Then, Else, Recur, Loop, End
     var simpleDescription: String {
@@ -34,29 +34,42 @@ enum TokenKeyword: Int {
     }
 }
 
-enum TokenOperator: Int {
-    case OpenParen = 1
-    case CloseParen, Not, LessThan, Plus, Multiply, Negative, Assign, DividingLine, Equals, And, Or
+func KeywordFromString(name: String) -> Keyword {
+    var index = 1
+    while let keyword = Keyword(rawValue: index) {
+        if keyword.simpleDescription == name {
+            return keyword
+        }
+        index += 1
+    }
+    assert(false, "Token: Tried to create keyword token with non-keyword string \(name)")
+}
+
+enum Operator: Int {
+    case Not = 1
+    case Negative, UnaryOperatorsDividingLine, OpenParen, CloseParen, LessThan, Plus, Multiply, Assign, SingleOperatorsDividingLine, Equals, And, Or
     var simpleDescription: String {
         get {
             switch self {
+            case .Not:
+                return "!"
+            case .Negative:
+                return "-"
+            case .UnaryOperatorsDividingLine:
+                assert(false, "Token: There is no reason to use this")
             case .OpenParen:
                 return "("
             case .CloseParen:
                 return ")"
-            case .Not:
-                return "!"
             case .LessThan:
                 return "<"
             case .Plus:
                 return "+"
             case .Multiply:
                 return "*"
-            case .Negative:
-                return "-"
             case .Assign:
                 return "="
-            case .DividingLine:
+            case .SingleOperatorsDividingLine:
                 assert(false, "Token: There is no reason to use this")
             case .Equals:
                 return "=="
@@ -69,14 +82,53 @@ enum TokenOperator: Int {
     }
 }
 
-var _SingleOperatorTokens : [String]?
-var SingleOperatorTokens: [String] {
+func OperatorFromString(op: String) -> Operator {
+    var index = 1
+    while let t = Operator(rawValue: index) {
+        if t != Operator.UnaryOperatorsDividingLine && t != Operator.SingleOperatorsDividingLine && t.simpleDescription == op {
+            return t
+        }
+        index += 1
+    }
+    assert(false, "Token: Tried to create operator token with non-operator string \(op)")
+}
+
+var _UnaryOperatorTokens : [Operator]?
+var UnaryOperatorTokens : [Operator] {
+    if _UnaryOperatorTokens == nil {
+        var index = 1
+        var unaryOperatorTokens = [Operator]()
+        while let op = Operator(rawValue: index) {
+            if index < Operator.UnaryOperatorsDividingLine.rawValue {
+                unaryOperatorTokens.append(op)
+                index += 1
+            } else {
+                break
+            }
+        }
+        _UnaryOperatorTokens = unaryOperatorTokens
+    }
+    return _UnaryOperatorTokens!
+}
+
+var _UnaryOperatorTokenStrings : [String]?
+var UnaryOperatorStrings : [String] {
+    if _UnaryOperatorTokenStrings == nil {
+        _UnaryOperatorTokenStrings = UnaryOperatorTokens.map {(op) -> String in return op.simpleDescription}
+    }
+    return _UnaryOperatorTokenStrings!
+}
+
+var _SingleOperatorTokens : [Operator]?
+var SingleOperatorTokens: [Operator] {
     if _SingleOperatorTokens == nil {
         var index = 1
-        var operatorTokens = [String]()
-        while let op = TokenOperator(rawValue: index) {
-            if index < TokenOperator.DividingLine.rawValue {
-                operatorTokens.append(op.simpleDescription)
+        var operatorTokens = [Operator]()
+        while let op = Operator(rawValue: index) {
+            if index < Operator.SingleOperatorsDividingLine.rawValue {
+                if index != Operator.UnaryOperatorsDividingLine.rawValue {
+                    operatorTokens.append(op)
+                }
                 index += 1
             } else {
                 break
@@ -87,13 +139,22 @@ var SingleOperatorTokens: [String] {
     return _SingleOperatorTokens!
 }
 
-var _DoubleOperatorTokens : [String]?
-var DoubleOperatorTokens: [String] {
+
+var _SingleOperatorTokenStrings : [String]?
+var SingleOperatorTokenStrings: [String] {
+    if _SingleOperatorTokenStrings == nil {
+        _SingleOperatorTokenStrings = SingleOperatorTokens.map {(op) -> String in return op.simpleDescription}
+    }
+    return _SingleOperatorTokenStrings!
+}
+
+var _DoubleOperatorTokens : [Operator]?
+var DoubleOperatorTokens: [Operator] {
     if _DoubleOperatorTokens == nil {
-        var index = TokenOperator.DividingLine.rawValue + 1
-        var operatorTokens = [String]()
-        while let op = TokenOperator(rawValue: index) {
-            operatorTokens.append(op.simpleDescription)
+        var index = Operator.SingleOperatorsDividingLine.rawValue + 1
+        var operatorTokens = [Operator]()
+        while let op = Operator(rawValue: index) {
+            operatorTokens.append(op)
             index += 1
         }
         _DoubleOperatorTokens = operatorTokens
@@ -101,21 +162,39 @@ var DoubleOperatorTokens: [String] {
     return _DoubleOperatorTokens!
 }
 
-var _TokenKeywords : [String]?
-var TokenKeywords: [String] {
-    if _TokenKeywords == nil {
+var _DoubleOperatorTokenStrings : [String]?
+var DoubleOperatorTokenStrings: [String] {
+    if _DoubleOperatorTokenStrings == nil {
+        _DoubleOperatorTokenStrings = DoubleOperatorTokens.map {(op) -> String in return op.simpleDescription}
+    }
+    return _DoubleOperatorTokenStrings!
+}
+
+var _Keywords : [Keyword]?
+var Keywords: [Keyword] {
+    if _Keywords == nil {
         var index = 1
-        var keywords = [String]()
-        while let kw = TokenKeyword(rawValue: index) {
-            keywords.append(kw.simpleDescription)
+        var keywords = [Keyword]()
+        while let kw = Keyword(rawValue: index) {
+            keywords.append(kw)
             index += 1
         }
-        _TokenKeywords = keywords
+        _Keywords = keywords
     }
-    return _TokenKeywords!
+    return _Keywords!
+}
+
+
+var _KeywordStrings : [String]?
+var KeywordStrings: [String] {
+    if _KeywordStrings == nil {
+        _KeywordStrings = Keywords.map {(keyword) -> String in return keyword.simpleDescription}
+    }
+    return _KeywordStrings!
 }
 
 let AllOperators = SingleOperatorTokens + DoubleOperatorTokens
+let AllOperatorStrings = SingleOperatorTokenStrings + DoubleOperatorTokenStrings
 
 
 enum TokenType {
@@ -143,23 +222,19 @@ protocol Token {
 }
 
 class KeywordToken : Token {
+    var keyword : Keyword
     var type: TokenType = TokenType.Keyword
-    var keyword : String {
-        willSet {
-            assert(TokenKeywords.contains(newValue), "Token: Tried creating keyword token with non-keyword")
-        }
-    }
 
-    init(keyword: String) {
+    init(keyword: Keyword) {
         self.keyword = keyword
     }
 
     var simpleDescription: String {
-        return "\(keyword)"
+        return "\(keyword.simpleDescription)"
     }
 
     var scannerDescription: String {
-        return "\(type.simpleDescription) \(keyword)"
+        return "\(type.simpleDescription) \(keyword.simpleDescription)"
     }
 }
 
@@ -167,7 +242,7 @@ class IdentifierToken : Token {
     var type: TokenType = TokenType.Identifier
     var name : String {
         willSet {
-            assert(!TokenKeywords.contains(newValue), "Token: Tried creating identifier token with keyword")
+            assert(!KeywordStrings.contains(newValue), "Token: Tried creating identifier token with keyword")
         }
     }
 
@@ -205,22 +280,18 @@ class IntegerToken : Token {
 
 class OperatorToken : Token {
     var type: TokenType = TokenType.Operator
-    var op : String {
-        willSet {
-            assert(AllOperators.contains(newValue), "Token: Tried creating operator token with non-operator")
-        }
-    }
+    var op : Operator
 
-    init(op: String) {
+    init(op: Operator) {
         self.op = op
     }
 
     var simpleDescription: String {
-        return "\(op)"
+        return "\(op.simpleDescription)"
     }
 
     var scannerDescription: String {
-        return "\(type.simpleDescription) \(op)"
+        return "\(type.simpleDescription) \(op.simpleDescription)"
     }
 }
 
@@ -238,7 +309,6 @@ class Scanner {
     private var nextChar : UnicodeScalar
 
     init(sourcePath: String) {
-//        print("Tokenizing \(sourcePath)..") // remove me
         do {
             let sourceString = try String(contentsOf: URL(fileURLWithPath: sourcePath))
             self.sourceString = sourceString
@@ -289,8 +359,8 @@ class Scanner {
                 while CharacterSet.alphanumerics.contains(nextChar) || isUnderscore(char: currentChar) {
                     name += String(consume())
                 }
-                if TokenKeywords.contains(name) {
-                    tokens.append(KeywordToken(keyword: name))
+                if KeywordStrings.contains(name) {
+                    tokens.append(KeywordToken(keyword: KeywordFromString(name: name)))
                 } else {
                     tokens.append(IdentifierToken(name: name))
                 }
@@ -301,17 +371,17 @@ class Scanner {
                 }
                 tokens.append(IntegerToken(value:Int(number)))
 
-            } else if SingleOperatorTokens.contains(String(currentChar)) && !isEqualSign(char: currentChar) {
-                tokens.append(OperatorToken(op: String(currentChar)))
+            } else if SingleOperatorTokenStrings.contains(String(currentChar)) && !isEqualSign(char: currentChar) {
+                tokens.append(OperatorToken(op: OperatorFromString(op: String(currentChar))))
 
-            } else if DoubleOperatorTokens.contains(String(currentChar) + String(currentChar)) {
+            } else if DoubleOperatorTokenStrings.contains(String(currentChar) + String(currentChar)) {
                 if isEqualSign(char: currentChar) {
                     if !isEqualSign(char: nextChar) {
-                        tokens.append(OperatorToken(op: String(currentChar)))
+                        tokens.append(OperatorToken(op: OperatorFromString(op: String(currentChar))))
                         continue
                     }
                 }
-                tokens.append(OperatorToken(op: String(currentChar) + String(consume())))
+                tokens.append(OperatorToken(op: OperatorFromString(op: String(currentChar) + String(consume()))))
 
             } else {
                 assert(false, "Scanner: Something wrong happened")

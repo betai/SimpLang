@@ -15,4 +15,7 @@ if CommandLine.arguments.count != 2 {
     // parser shit
     var parser = Parser(tokens: scanner.tokens)
     print("\(parser.syntaxTreeString)")
+//    for node in parser.nodes {
+//        print("\(node.eval())")
+//    }
 }

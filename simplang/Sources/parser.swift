@@ -3,8 +3,11 @@
  * *****************************************/
 
 
-protocol SyntaxNode {
+protocol SyntaxNode : ParserPrintable {
     func eval() -> Int
+}
+
+protocol ParserPrintable {
     func parserDescription(depth: Int) -> String
 }
 
@@ -133,6 +136,59 @@ class BinaryExpression : SyntaxNode {
     }
 }
 
+class LetExpression : SyntaxNode {
+    var bindings : [Binding]
+    var exp : SyntaxNode
+
+    init(bindings: [Binding], exp: SyntaxNode) {
+        self.bindings = bindings
+        self.exp = exp
+    }
+
+    func eval() -> Int {
+        assert(false, "Not yet implemented")
+    }
+
+    func parserDescription(depth: Int) -> String {
+        var result = [spacingForDepth(depth: depth) + Keyword.Let.simpleDescription]
+        for binding in bindings {
+            result.append(binding.parserDescription(depth: depth + 2))
+        }
+        result.append(exp.parserDescription(depth: depth + 1))
+        return result.joined(separator: "\n")
+    }
+}
+
+class IdentifierExpression : SyntaxNode {
+    var token : IdentifierToken
+
+    init(token: IdentifierToken) {
+        self.token = token
+    }
+
+    func eval() -> Int {
+        assert(false, "Not yet implemented")
+    }
+
+    func parserDescription(depth: Int) -> String {
+        return spacingForDepth(depth: depth) + token.name
+    }
+}
+
+class Binding : ParserPrintable {
+    var identifier : IdentifierExpression
+    var exp : SyntaxNode
+
+    init(identifier: IdentifierToken, exp: SyntaxNode) {
+        self.identifier = IdentifierExpression(token: identifier)
+        self.exp = exp
+    }
+
+    func parserDescription(depth: Int) -> String {
+        return [identifier.parserDescription(depth: depth), exp.parserDescription(depth: depth + 1)].joined(separator: "\n")
+    }
+}
+
 /******************************************
  *  Parser
  * *****************************************/
@@ -168,11 +224,11 @@ class Parser {
         tokens = [token] + tokens
     }
     private func expect(token: Keyword) {
-        assert(nextToken().simpleDescription == token.simpleDescription)
+        assert(nextToken().simpleDescription == token.simpleDescription, "Parser: Expected keyword, got \(token.simpleDescription)")
     }
 
     private func expect(token: Operator) {
-        assert(nextToken().simpleDescription == token.simpleDescription)
+        assert(nextToken().simpleDescription == token.simpleDescription, "Parser: Expected operator, got \(token.simpleDescription)")
     }
 
     private func parseSyntaxNode() -> SyntaxNode {
@@ -190,6 +246,25 @@ class Parser {
                 let alternative = parseSyntaxNode()
                 expect(token: Keyword.End)
                 return IfExpression(condition: condition, consequent: consequent, alternative: alternative)
+            } else if Keyword.Let == currentKeywordToken.keyword {
+                var bindings = [Binding]()
+                while true {
+                    let identifer = nextToken()
+                    let identifierToken = identifer as! IdentifierToken // TODO: maybe handle this exception more gracefully
+                    expect(token: Operator.Assign)
+                    let expression = parseSyntaxNode()
+                    bindings.append(Binding(identifier: identifierToken, exp: expression))
+
+                    let next = nextToken()
+                    if next.type == TokenType.Keyword && (next as! KeywordToken).keyword != Keyword.And {
+                        putBackToken(token: next)
+                        break
+                    }
+                }
+                expect(token: Keyword.In)
+                let expression = parseSyntaxNode()
+                expect(token: Keyword.End)
+                return LetExpression(bindings: bindings, exp: expression)
             } else {
                 assert(false, "Parser: not yet implemented")
                 return IntegerExpression(token: IntegerToken(value: nil))
@@ -209,12 +284,14 @@ class Parser {
                 return ParenthesizedExpression(exp: expression)
             } else if UnaryOperatorTokens.contains(currentOperatorToken.op) {
                 return UnaryExpression(unaryOp: currentOperatorToken.op, exp: parseSyntaxNode())
+//            } else if BinaryOperatorTokens.contains(currentOperatorToken.op) {
+//                assert(false, "Parser: not yet implemented")
+//                return BinaryExpression(binaryOp: currentOperatorToken.op, left: ?, right: parseSyntaxNode())
             } else {
                 assert(false, "Parser: not yet implemented")
             }
-
-        default:
-            assert(false, "Parser: not yet implemented")
+        case .Identifier:
+            return IdentifierExpression(token: currentToken as! IdentifierToken)
         }
     }
 }

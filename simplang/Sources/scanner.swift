@@ -47,7 +47,7 @@ func KeywordFromString(name: String) -> Keyword {
 
 enum Operator: Int {
     case Not = 1
-    case Negative, UnaryOperatorsDividingLine, OpenParen, CloseParen, LessThan, Plus, Multiply, Assign, SingleOperatorsDividingLine, Equals, And, Or
+    case Negative, UnaryOperatorsDividingLine, OpenParen, CloseParen, Assign, BinaryOperatorsDividingLine, LessThan, Plus, Multiply, SingleOperatorsDividingLine, Equals, And, Or
     var simpleDescription: String {
         get {
             switch self {
@@ -61,14 +61,16 @@ enum Operator: Int {
                 return "("
             case .CloseParen:
                 return ")"
+            case .Assign:
+                return "="
+            case .BinaryOperatorsDividingLine:
+                assert(false, "Token: There is no reason to use this")
             case .LessThan:
                 return "<"
             case .Plus:
                 return "+"
             case .Multiply:
                 return "*"
-            case .Assign:
-                return "="
             case .SingleOperatorsDividingLine:
                 assert(false, "Token: There is no reason to use this")
             case .Equals:
@@ -85,7 +87,7 @@ enum Operator: Int {
 func OperatorFromString(op: String) -> Operator {
     var index = 1
     while let t = Operator(rawValue: index) {
-        if t != Operator.UnaryOperatorsDividingLine && t != Operator.SingleOperatorsDividingLine && t.simpleDescription == op {
+        if t != Operator.UnaryOperatorsDividingLine && t != Operator.BinaryOperatorsDividingLine && t != Operator.SingleOperatorsDividingLine && t.simpleDescription == op {
             return t
         }
         index += 1
@@ -111,12 +113,20 @@ var UnaryOperatorTokens : [Operator] {
     return _UnaryOperatorTokens!
 }
 
-var _UnaryOperatorTokenStrings : [String]?
-var UnaryOperatorStrings : [String] {
-    if _UnaryOperatorTokenStrings == nil {
-        _UnaryOperatorTokenStrings = UnaryOperatorTokens.map {(op) -> String in return op.simpleDescription}
+var _BinaryOperatorTokens : [Operator]?
+var BinaryOperatorTokens : [Operator] {
+    if _BinaryOperatorTokens == nil {
+        var index = Operator.BinaryOperatorsDividingLine.rawValue + 1
+        var binaryTokens = [Operator]()
+        while let op = Operator(rawValue: index) {
+            if op != Operator.SingleOperatorsDividingLine {
+                binaryTokens.append(op)
+            }
+            index += 1
+        }
+        _BinaryOperatorTokens = binaryTokens
     }
-    return _UnaryOperatorTokenStrings!
+    return _BinaryOperatorTokens!
 }
 
 var _SingleOperatorTokens : [Operator]?
@@ -126,7 +136,7 @@ var SingleOperatorTokens: [Operator] {
         var operatorTokens = [Operator]()
         while let op = Operator(rawValue: index) {
             if index < Operator.SingleOperatorsDividingLine.rawValue {
-                if index != Operator.UnaryOperatorsDividingLine.rawValue {
+                if index != Operator.UnaryOperatorsDividingLine.rawValue && index != Operator.BinaryOperatorsDividingLine.rawValue {
                     operatorTokens.append(op)
                 }
                 index += 1

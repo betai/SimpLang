@@ -212,7 +212,7 @@ the `numpy.int64` type.
 
 Here's how the operators work:
 
-* `!`_x_ is `1` if _x_ is `0`.  It's `0` if _x_ is not `0`.
+* `!`_x_ is `1` if _x_ is `0`.  It's `1` if _x_ is not `0`.
 
 * `-`_x_ is the arithmetic negation of _x_.
 

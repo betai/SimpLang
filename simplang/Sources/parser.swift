@@ -146,7 +146,21 @@ class LetExpression : SyntaxNode {
     }
 
     func eval() -> Int {
-        assert(false, "Not yet implemented")
+        for binding in bindings {
+            if let _ = variableStack[binding.identifierName] {
+                variableStack[binding.identifierName]!.Push(binding.exp.eval())
+            } else {
+                let stack = Stack<Int>()
+                stack.Push(binding.exp.eval())
+                variableStack[binding.identifierName] = stack
+            }
+
+        }
+        let result = exp.eval()
+        for binding in bindings {
+            _ = variableStack[binding.identifierName]!.Pop()
+        }
+        return result
     }
 
     func parserDescription(depth: Int) -> String {
@@ -179,10 +193,12 @@ class IdentifierExpression : SyntaxNode {
 
 class Binding : ParserPrintable {
     var identifier : IdentifierExpression
+    var identifierName : String
     var exp : SyntaxNode
 
     init(identifier: IdentifierToken, exp: SyntaxNode) {
         self.identifier = IdentifierExpression(token: identifier)
+        self.identifierName = identifier.name
         self.exp = exp
     }
 

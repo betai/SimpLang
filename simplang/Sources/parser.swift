@@ -26,7 +26,7 @@ class IntegerExpression : SyntaxNode {
     }
 
     func parserDescription(depth: Int) -> String {
-        return spacingForDepth(depth: depth) + "\(token.value)" + "\n"
+        return spacingForDepth(depth: depth) + "\(token.value)"
     }
 }
 

@@ -159,6 +159,8 @@ class LetExpression : SyntaxNode {
     }
 }
 
+var variableStack : [String: Stack<Int>] = [String: Stack<Int>]()
+
 class IdentifierExpression : SyntaxNode {
     var token : IdentifierToken
 
@@ -167,7 +169,7 @@ class IdentifierExpression : SyntaxNode {
     }
 
     func eval() -> Int {
-        assert(false, "Not yet implemented")
+        return variableStack[token.name]!.Peek()!
     }
 
     func parserDescription(depth: Int) -> String {

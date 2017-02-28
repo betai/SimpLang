@@ -4,7 +4,7 @@
 
 
 protocol SyntaxNode : ParserPrintable {
-    func eval() -> Int
+    func eval() -> (value: Int, newValues: [Int]?)
 }
 
 protocol ParserPrintable {
@@ -21,8 +21,8 @@ class IntegerExpression : SyntaxNode {
         self.token = token
     }
 
-    func eval() -> Int {
-        return token.value
+    func eval() -> (value: Int, newValues: [Int]?) {
+        return (value: token.value, nil)
     }
 
     func parserDescription(depth: Int) -> String {
@@ -41,8 +41,8 @@ class IfExpression : SyntaxNode {
         self.alternative = alternative
     }
 
-    func eval() -> Int {
-        return condition.eval() == 0 ? alternative.eval() : consequent.eval()
+    func eval() -> (value: Int, newValues: [Int]?) {
+        return condition.eval().value == 0 ? alternative.eval() : consequent.eval()
     }
 
     func parserDescription(depth: Int) -> String {
@@ -61,7 +61,7 @@ class ParenthesizedExpression : SyntaxNode {
         self.exp = exp
     }
 
-    func eval() -> Int {
+    func eval() -> (value:Int, newValues: [Int]?) {
         return exp.eval()
     }
 
@@ -79,12 +79,13 @@ class UnaryExpression : SyntaxNode {
         self.exp = exp
     }
 
-    func eval() -> Int {
+    func eval() -> (value: Int, newValues: [Int]?) {
+        let evaluatedExp = exp.eval()
         switch unaryOp {
         case .Not:
-            return exp.eval() == 0 ? 1 : 0
+            return evaluatedExp.value == 0 ? (value: 1, newValues: nil) : (value: 0, newValues: nil)
         case .Negative:
-            return -exp.eval()
+            return (value: -evaluatedExp.value, newValues: nil)
         default:
             assert(false, "SyntaxNode: not a unary operation \(unaryOp.simpleDescription)")
         }
@@ -109,20 +110,20 @@ class BinaryExpression : SyntaxNode {
         self.right = right
     }
 
-    func eval() -> Int {
+    func eval() -> (value: Int, newValues: [Int]?) {
         switch binaryOp {
         case .LessThan:
-            return left.eval() < right.eval() ? 1 : 0
+            return left.eval().value < right.eval().value ? (value: 1, newValues: nil) : (value: 0, newValues: nil)
         case .Plus:
-            return left.eval() + right.eval()
+            return (value: left.eval().value + right.eval().value, newValues: nil)
         case .Multiply:
-            return left.eval() * right.eval()
+            return (value: left.eval().value * right.eval().value, newValues: nil)
         case .Equals:
-            return left.eval() == right.eval() ? 1 : 0
+            return left.eval().value == right.eval().value ? (value: 1, newValues: nil) : (value: 0, newValues: nil)
         case .And:
-            return left.eval() == 0 || right.eval() == 0 ? 0 : 1
+            return left.eval().value == 0 || right.eval().value == 0 ? (value: 0, newValues: nil) : (value: 1, newValues: nil)
         case .Or:
-            return left.eval() == 0 && right.eval() == 0 ? 0 : 1
+            return left.eval().value == 0 && right.eval().value == 0 ? (value: 0, newValues: nil) : (value: 1, newValues: nil)
         default:
             assert(false, "SyntaxNode: not a binary operation \(binaryOp.simpleDescription)")
         }
@@ -145,21 +146,10 @@ class LetExpression : SyntaxNode {
         self.exp = exp
     }
 
-    func eval() -> Int {
-        for binding in bindings {
-            if let _ = variableStack[binding.identifierName] {
-                variableStack[binding.identifierName]!.Push(binding.exp.eval())
-            } else {
-                let stack = Stack<Int>()
-                stack.Push(binding.exp.eval())
-                variableStack[binding.identifierName] = stack
-            }
-
-        }
+    func eval() -> (value: Int, newValues: [Int]?) {
+        PushBindingScope(bindings: bindings)
         let result = exp.eval()
-        for binding in bindings {
-            _ = variableStack[binding.identifierName]!.Pop()
-        }
+        PopBindingScope(bindings: bindings)
         return result
     }
 
@@ -173,6 +163,82 @@ class LetExpression : SyntaxNode {
     }
 }
 
+class LoopExpression : SyntaxNode {
+    var bindings : [Binding]
+    var exp : SyntaxNode
+
+    init(bindings: [Binding], exp: SyntaxNode) {
+        self.bindings = bindings
+        self.exp = exp
+    }
+
+    func eval() -> (value: Int, newValues: [Int]?) {
+        PushBindingScope(bindings: bindings)
+        while true {
+            let result = exp.eval()
+            if result.newValues == nil {
+                PopBindingScope(bindings: bindings)
+                return result
+            }
+            for (index, binding) in bindings.enumerated() {
+                variableStack[binding.identifierName]?.Update(topOfStack: result.newValues![index])
+            }
+        }
+    }
+
+    func parserDescription(depth: Int) -> String {
+        var result = [spacingForDepth(depth: depth) + Keyword.Loop.simpleDescription]
+        for binding in bindings {
+            result.append(binding.parserDescription(depth: depth + 1))
+        }
+        result.append(exp.parserDescription(depth: depth + 1))
+        return result.joined(separator: "\n")
+    }
+}
+
+class RecurExpression : SyntaxNode {
+    var args : [ParenthesizedExpression]
+
+    init(args: [ParenthesizedExpression]) {
+        self.args = args
+    }
+
+    func eval() -> (value: Int, newValues: [Int]?) {
+        var values = [Int]()
+        for arg in args {
+            values.append(arg.eval().value)
+        }
+        return (value: 0, newValues: values)
+    }
+
+    func parserDescription(depth: Int) -> String {
+        var result = [spacingForDepth(depth: depth) + Keyword.Recur.simpleDescription]
+        for arg in args {
+            result.append(arg.parserDescription(depth: depth + 1))
+        }
+        return result.joined(separator: "\n")
+    }
+}
+
+func PushBindingScope(bindings: [Binding]) {
+    for binding in bindings {
+        if let _ = variableStack[binding.identifierName] {
+            variableStack[binding.identifierName]!.Push(binding.exp.eval().value)
+        } else {
+            let stack = Stack<Int>()
+            stack.Push(binding.exp.eval().value)
+            variableStack[binding.identifierName] = stack
+        }
+    }
+}
+
+func PopBindingScope(bindings: [Binding]) {
+    for binding in bindings {
+        _ = variableStack[binding.identifierName]!.Pop()
+    }
+}
+
+
 var variableStack : [String: Stack<Int>] = [String: Stack<Int>]()
 
 class IdentifierExpression : SyntaxNode {
@@ -182,8 +248,8 @@ class IdentifierExpression : SyntaxNode {
         self.token = token
     }
 
-    func eval() -> Int {
-        return variableStack[token.name]!.Peek()!
+    func eval() -> (value: Int, newValues: [Int]?) {
+        return (value: variableStack[token.name]!.Peek()!, newValues: nil)
     }
 
     func parserDescription(depth: Int) -> String {
@@ -234,6 +300,11 @@ class Parser {
             nodes.append(parseSyntaxNode())
         }
     }
+
+    private func peekNextToken() -> Token {
+        return tokens[0]
+    }
+
     private func nextToken() -> Token {
         return tokens.removeFirst()
     }
@@ -247,6 +318,25 @@ class Parser {
 
     private func expect(token: Operator) {
         assert(nextToken().simpleDescription == token.simpleDescription, "Parser: Expected operator, got \(token.simpleDescription)")
+    }
+
+    private func parseBindings() -> [Binding] {
+        var bindings = [Binding]()
+        while true {
+            let identifer = nextToken()
+            let identifierToken = identifer as! IdentifierToken // TODO: maybe handle this exception more gracefully
+            expect(token: Operator.Assign)
+            let expression = parseSyntaxNode()
+            bindings.append(Binding(identifier: identifierToken, exp: expression))
+
+            let next = nextToken()
+            assert(next.type == TokenType.Keyword, "Parser: Expected keyword, got \(next.scannerDescription)")
+            if next.type == TokenType.Keyword && (next as! KeywordToken).keyword != Keyword.And {
+                putBackToken(token: next)
+                break
+            }
+        }
+        return bindings
     }
 
     private func parseSyntaxNode() -> SyntaxNode {
@@ -264,28 +354,28 @@ class Parser {
                 let alternative = parseSyntaxNode()
                 expect(token: Keyword.End)
                 return IfExpression(condition: condition, consequent: consequent, alternative: alternative)
-            } else if Keyword.Let == currentKeywordToken.keyword {
-                var bindings = [Binding]()
-                while true {
-                    let identifer = nextToken()
-                    let identifierToken = identifer as! IdentifierToken // TODO: maybe handle this exception more gracefully
-                    expect(token: Operator.Assign)
-                    let expression = parseSyntaxNode()
-                    bindings.append(Binding(identifier: identifierToken, exp: expression))
-
-                    let next = nextToken()
-                    if next.type == TokenType.Keyword && (next as! KeywordToken).keyword != Keyword.And {
-                        putBackToken(token: next)
-                        break
-                    }
-                }
+            } else if Keyword.Let == currentKeywordToken.keyword || Keyword.Loop == currentKeywordToken.keyword {
+                let bindings = parseBindings()
                 expect(token: Keyword.In)
                 let expression = parseSyntaxNode()
                 expect(token: Keyword.End)
-                return LetExpression(bindings: bindings, exp: expression)
+                return Keyword.Let == currentKeywordToken.keyword ? LetExpression(bindings: bindings, exp: expression) : LoopExpression(bindings: bindings, exp: expression)
+            } else if Keyword.Recur == currentKeywordToken.keyword {
+                var args = [ParenthesizedExpression]()
+
+                while true {
+                    let expression = parseSyntaxNode()
+                    assert(expression is ParenthesizedExpression, "Parser: Expected parenthesized expression got \(expression.parserDescription(depth: 0))")
+                    args.append(expression as! ParenthesizedExpression)
+                    let next = peekNextToken()
+                    if next.type == TokenType.Operator && (next as! OperatorToken).op == Operator.OpenParen {
+                        continue
+                    }
+                    break;
+                }
+                return RecurExpression(args: args)
             } else {
                 assert(false, "Parser: not yet implemented")
-                return IntegerExpression(token: IntegerToken(value: nil))
             }
         case .Operator:
             let currentOperatorToken = currentToken as! OperatorToken

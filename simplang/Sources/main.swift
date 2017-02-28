@@ -31,7 +31,7 @@ if CommandLine.arguments.count != 3 {
         print("\(parser.syntaxTreeString)")
     } else if option == "--interpret" {
         for node in parser.nodes {
-            print("\(node.eval())")
+            print("\(node.eval().value)")
         }
     }
 

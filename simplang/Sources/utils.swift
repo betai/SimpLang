@@ -25,4 +25,8 @@ class Stack<T> {
     public func Peek() -> T? {
         return data.first
     }
+
+    public func Update(topOfStack: T) {
+        data[0] = topOfStack
+    }
 }

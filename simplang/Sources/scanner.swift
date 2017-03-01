@@ -29,7 +29,6 @@ enum Keyword: Int {
             case .End:
                 return "end"
             }
-
         }
     }
 }
@@ -43,141 +42,6 @@ func KeywordFromString(name: String) -> Keyword {
         index += 1
     }
     assert(false, "Token: Tried to create keyword token with non-keyword string \(name)")
-}
-
-enum Operator: Int {
-    case Not = 1
-    case Negative, UnaryOperatorsDividingLine, OpenParen, CloseParen, Assign, BinaryOperatorsDividingLine, LessThan, Plus, Multiply, SingleOperatorsDividingLine, Equals, And, Or
-    var simpleDescription: String {
-        get {
-            switch self {
-            case .Not:
-                return "!"
-            case .Negative:
-                return "-"
-            case .UnaryOperatorsDividingLine:
-                assert(false, "Token: There is no reason to use this")
-            case .OpenParen:
-                return "("
-            case .CloseParen:
-                return ")"
-            case .Assign:
-                return "="
-            case .BinaryOperatorsDividingLine:
-                assert(false, "Token: There is no reason to use this")
-            case .LessThan:
-                return "<"
-            case .Plus:
-                return "+"
-            case .Multiply:
-                return "*"
-            case .SingleOperatorsDividingLine:
-                assert(false, "Token: There is no reason to use this")
-            case .Equals:
-                return "=="
-            case .And:
-                return "&&"
-            case .Or:
-                return "||"
-            }
-        }
-    }
-}
-
-func OperatorFromString(op: String) -> Operator {
-    var index = 1
-    while let t = Operator(rawValue: index) {
-        if t != Operator.UnaryOperatorsDividingLine && t != Operator.BinaryOperatorsDividingLine && t != Operator.SingleOperatorsDividingLine && t.simpleDescription == op {
-            return t
-        }
-        index += 1
-    }
-    assert(false, "Token: Tried to create operator token with non-operator string \(op)")
-}
-
-var _UnaryOperatorTokens : [Operator]?
-var UnaryOperatorTokens : [Operator] {
-    if _UnaryOperatorTokens == nil {
-        var index = 1
-        var unaryOperatorTokens = [Operator]()
-        while let op = Operator(rawValue: index) {
-            if index < Operator.UnaryOperatorsDividingLine.rawValue {
-                unaryOperatorTokens.append(op)
-                index += 1
-            } else {
-                break
-            }
-        }
-        _UnaryOperatorTokens = unaryOperatorTokens
-    }
-    return _UnaryOperatorTokens!
-}
-
-var _BinaryOperatorTokens : [Operator]?
-var BinaryOperatorTokens : [Operator] {
-    if _BinaryOperatorTokens == nil {
-        var index = Operator.BinaryOperatorsDividingLine.rawValue + 1
-        var binaryTokens = [Operator]()
-        while let op = Operator(rawValue: index) {
-            if op != Operator.SingleOperatorsDividingLine {
-                binaryTokens.append(op)
-            }
-            index += 1
-        }
-        _BinaryOperatorTokens = binaryTokens
-    }
-    return _BinaryOperatorTokens!
-}
-
-var _SingleOperatorTokens : [Operator]?
-var SingleOperatorTokens: [Operator] {
-    if _SingleOperatorTokens == nil {
-        var index = 1
-        var operatorTokens = [Operator]()
-        while let op = Operator(rawValue: index) {
-            if index < Operator.SingleOperatorsDividingLine.rawValue {
-                if index != Operator.UnaryOperatorsDividingLine.rawValue && index != Operator.BinaryOperatorsDividingLine.rawValue {
-                    operatorTokens.append(op)
-                }
-                index += 1
-            } else {
-                break
-            }
-        }
-        _SingleOperatorTokens = operatorTokens
-    }
-    return _SingleOperatorTokens!
-}
-
-
-var _SingleOperatorTokenStrings : [String]?
-var SingleOperatorTokenStrings: [String] {
-    if _SingleOperatorTokenStrings == nil {
-        _SingleOperatorTokenStrings = SingleOperatorTokens.map {(op) -> String in return op.simpleDescription}
-    }
-    return _SingleOperatorTokenStrings!
-}
-
-var _DoubleOperatorTokens : [Operator]?
-var DoubleOperatorTokens: [Operator] {
-    if _DoubleOperatorTokens == nil {
-        var index = Operator.SingleOperatorsDividingLine.rawValue + 1
-        var operatorTokens = [Operator]()
-        while let op = Operator(rawValue: index) {
-            operatorTokens.append(op)
-            index += 1
-        }
-        _DoubleOperatorTokens = operatorTokens
-    }
-    return _DoubleOperatorTokens!
-}
-
-var _DoubleOperatorTokenStrings : [String]?
-var DoubleOperatorTokenStrings: [String] {
-    if _DoubleOperatorTokenStrings == nil {
-        _DoubleOperatorTokenStrings = DoubleOperatorTokens.map {(op) -> String in return op.simpleDescription}
-    }
-    return _DoubleOperatorTokenStrings!
 }
 
 var _Keywords : [Keyword]?
@@ -194,13 +58,89 @@ var Keywords: [Keyword] {
     return _Keywords!
 }
 
-
 var _KeywordStrings : [String]?
 var KeywordStrings: [String] {
     if _KeywordStrings == nil {
         _KeywordStrings = Keywords.map {(keyword) -> String in return keyword.simpleDescription}
     }
     return _KeywordStrings!
+}
+
+enum Operator: Int {
+    case Not = 1
+    case Negative, OpenParen, CloseParen, Assign, LessThan, Plus, Multiply, Equals, And, Or
+    var simpleDescription: String {
+        get {
+            switch self {
+            case .Not:
+                return "!"
+            case .Negative:
+                return "-"
+            case .OpenParen:
+                return "("
+            case .CloseParen:
+                return ")"
+            case .Assign:
+                return "="
+            case .LessThan:
+                return "<"
+            case .Plus:
+                return "+"
+            case .Multiply:
+                return "*"
+            case .Equals:
+                return "=="
+            case .And:
+                return "&&"
+            case .Or:
+                return "||"
+            }
+        }
+    }
+}
+
+func OperatorFromString(op: String) -> Operator {
+    var index = 1
+    while let t = Operator(rawValue: index) {
+        if t.simpleDescription == op {
+            return t
+        }
+        index += 1
+    }
+    assert(false, "Token: Tried to create operator token with non-operator string \(op)")
+}
+
+var UnaryOperatorTokens : [Operator] {
+    return [.Not, .Negative]
+}
+
+var BinaryOperatorTokens : [Operator] {
+    return [.LessThan, .Plus, .Multiply, .Equals, .And, .Or]
+}
+
+var SingleOperatorTokens: [Operator] {
+    return [.Not, .Negative, .OpenParen, .CloseParen, .Assign, .LessThan, .Plus, .Multiply]
+}
+
+
+var _SingleOperatorTokenStrings : [String]?
+var SingleOperatorTokenStrings: [String] {
+    if _SingleOperatorTokenStrings == nil {
+        _SingleOperatorTokenStrings = SingleOperatorTokens.map {(op) -> String in return op.simpleDescription}
+    }
+    return _SingleOperatorTokenStrings!
+}
+
+var DoubleOperatorTokens: [Operator] {
+    return [.Equals, .And, .Or]
+}
+
+var _DoubleOperatorTokenStrings : [String]?
+var DoubleOperatorTokenStrings: [String] {
+    if _DoubleOperatorTokenStrings == nil {
+        _DoubleOperatorTokenStrings = DoubleOperatorTokens.map {(op) -> String in return op.simpleDescription}
+    }
+    return _DoubleOperatorTokenStrings!
 }
 
 let AllOperators = SingleOperatorTokens + DoubleOperatorTokens

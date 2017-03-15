@@ -10,11 +10,11 @@ class Stack<T> {
     init() {
     }
 
-    public func Push(_ elem: T) {
+    public func push(_ elem: T) {
         data = [elem] + data
     }
 
-    public func Pop() -> T? {
+    public func pop() -> T? {
         if let first = data.first {
             data.removeFirst()
             return first
@@ -22,11 +22,11 @@ class Stack<T> {
         return nil
     }
 
-    public func Peek() -> T? {
+    public func peek() -> T? {
         return data.first
     }
 
-    public func Update(topOfStack: T) {
+    public func update(topOfStack: T) {
         data[0] = topOfStack
     }
 }

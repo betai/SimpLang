@@ -30,9 +30,8 @@ if CommandLine.arguments.count != 3 {
     if option == "--parse" {
         print("\(parser.syntaxTreeString)")
     } else if option == "--interpret" {
-        for node in parser.nodes {
-            print("\(node.eval().value)")
+        if let root = parser.root {
+            print("\(root.eval().value)")
         }
     }
-
 }

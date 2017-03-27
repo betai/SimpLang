@@ -82,18 +82,18 @@ enum Operator: Int {
                 return ")"
             case .Assign:
                 return "="
+            case .And:
+                return "&&"
+            case .Or:
+                return "||"
+            case .Equals:
+                return "=="
             case .LessThan:
                 return "<"
             case .Plus:
                 return "+"
             case .Multiply:
                 return "*"
-            case .Equals:
-                return "=="
-            case .And:
-                return "&&"
-            case .Or:
-                return "||"
             }
         }
     }

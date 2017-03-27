@@ -278,13 +278,11 @@ class Binding : ParserPrintable {
  * *****************************************/
 
 class Parser {
-    public var nodes : [SyntaxNode] = []
+    public var root : Expression?
     public var syntaxTreeString: String {
         get {
             var result = ""
-            for node in self.nodes {
-                result += node.parserDescription(depth: 0)
-            }
+            result = root == nil ? result : root!.parserDescription(depth: 0)
             return result
         }
     }
@@ -292,13 +290,66 @@ class Parser {
 
     init(tokens: [Token]) {
         self.tokens = tokens
-        createSyntaxTree()
+        if tokens.count > 0 {
+            resultStacks.push(Stack<Expression>())
+            operatorStacks.push(Stack<Operator>())
+            createSyntaxTree()
+        }
     }
 
     private func createSyntaxTree() {
-        while tokens.count > 0 {
-            nodes.append(parseSyntaxNode())
+        root = parseBinaryExpression()
+    }
+
+    private var resultStacks : Stack<Stack<Expression>> = Stack<Stack<Expression>>()
+    private var operatorStacks : Stack<Stack<Operator>> = Stack<Stack<Operator>>()
+
+    private var resultStack: Stack<Expression> {
+        get {
+            return resultStacks.peek()!
         }
+    }
+
+    private var operatorStack: Stack<Operator> {
+        get {
+            return operatorStacks.peek()!
+        }
+    }
+
+    private func enterNewScope() {
+        resultStacks.push(Stack<Expression>())
+        operatorStacks.push(Stack<Operator>())
+    }
+
+    private func leaveScope() {
+        _ = resultStacks.pop()
+        _ = operatorStacks.pop()
+    }
+
+    private func shuntinYardAlgorithm(newOperator: Operator) {
+        while operatorStack.count > 0 && hasLowerPrecedence(op: newOperator, opOnTheStack: operatorStack.peek()!) {
+            resultStack.push(createBinaryExpression())
+        }
+        operatorStack.push(newOperator)
+    }
+
+    private func hasLowerPrecedence(op: Operator, opOnTheStack: Operator) -> Bool {
+        // the order of the operators in the enums reflect operator precedence
+        return op.rawValue <= opOnTheStack.rawValue
+    }
+
+    private func createBinaryExpression() -> BinaryExpression {
+        let op = operatorStack.pop()!
+        let right = resultStack.pop()!
+        let left = resultStack.pop()!
+        return BinaryExpression(binaryOp: op, left: left, right: right)
+    }
+
+    private func joinExpressionsWithOperators() -> Expression? {
+        while operatorStack.count > 0 {
+            resultStack.push(createBinaryExpression())
+        }
+        return resultStack.pop()
     }
 
     private func peekNextToken() -> Token? {
@@ -313,11 +364,13 @@ class Parser {
         tokens = [token] + tokens
     }
     private func expect(token: Keyword) {
-        assert(nextToken().simpleDescription == token.simpleDescription, "Parser: Expected keyword, got \(token.simpleDescription)")
+        let nextKeyword = (nextToken() as! KeywordToken).keyword
+        assert(nextKeyword == token, "Parser: Expected \(token.simpleDescription) got \(nextKeyword.simpleDescription)")
     }
 
     private func expect(token: Operator) {
-        assert(nextToken().simpleDescription == token.simpleDescription, "Parser: Expected operator, got \(token.simpleDescription)")
+        let nextOperator = (nextToken() as! OperatorToken).op
+        assert(nextOperator == token, "Parser: Expected \(token.simpleDescription) got \(nextOperator.simpleDescription)")
     }
 
     private func parseBindings() -> [Binding] {
@@ -326,7 +379,7 @@ class Parser {
             let identifer = nextToken()
             let identifierToken = identifer as! IdentifierToken // TODO: maybe handle this exception more gracefully
             expect(token: Operator.Assign)
-            let expression = parseExpression()
+            let expression = parseBinaryExpression()
             bindings.append(Binding(identifier: identifierToken, exp: expression))
 
             let next = nextToken()
@@ -339,7 +392,19 @@ class Parser {
         return bindings
     }
 
-    private func parseExpression() -> Expression {
+    private func parseBinaryExpression() -> Expression {
+        while true {
+            resultStack.push(parsePrimaryExpression())
+            if peekNextToken() == nil || peekNextToken()!.type != TokenType.Operator || !BinaryOperatorTokens.contains((peekNextToken()! as! OperatorToken).op) {
+                break
+            }
+            let op = (nextToken() as! OperatorToken).op
+            shuntinYardAlgorithm(newOperator: op)
+        }
+        return joinExpressionsWithOperators()!
+    }
+
+    private func parsePrimaryExpression() -> Expression {
         let currentToken = nextToken()
         switch currentToken.type {
         case .Integer:
@@ -347,24 +412,24 @@ class Parser {
         case .Keyword:
             let currentKeywordToken = currentToken as! KeywordToken
             if Keyword.If == currentKeywordToken.keyword {
-                let condition = parseExpression()
+                let condition = parseBinaryExpression()
                 expect(token: Keyword.Then)
-                let consequent = parseExpression()
+                let consequent = parseBinaryExpression()
                 expect(token: Keyword.Else)
-                let alternative = parseExpression()
+                let alternative = parseBinaryExpression()
                 expect(token: Keyword.End)
                 return IfExpression(condition: condition, consequent: consequent, alternative: alternative)
             } else if Keyword.Let == currentKeywordToken.keyword || Keyword.Loop == currentKeywordToken.keyword {
                 let bindings = parseBindings()
                 expect(token: Keyword.In)
-                let expression = parseExpression()
+                let expression = parseBinaryExpression()
                 expect(token: Keyword.End)
                 return Keyword.Let == currentKeywordToken.keyword ? LetExpression(bindings: bindings, exp: expression) : LoopExpression(bindings: bindings, exp: expression)
             } else if Keyword.Recur == currentKeywordToken.keyword {
                 var args = [ParenthesizedExpression]()
 
                 while true {
-                    let expression = parseExpression()
+                    let expression = parsePrimaryExpression() // Note: this should not be parseBinaryExpression
                     assert(expression is ParenthesizedExpression, "Parser: Expected parenthesized expression got \(expression.parserDescription(depth: 0))")
                     args.append(expression as! ParenthesizedExpression)
                     if let next = peekNextToken() {
@@ -381,21 +446,21 @@ class Parser {
         case .Operator:
             let currentOperatorToken = currentToken as! OperatorToken
             if Operator.OpenParen == currentOperatorToken.op {
-                var expression = parseExpression()
-                let next = nextToken()
-                if next.type == TokenType.Operator && BinaryOperatorTokens.contains((next as! OperatorToken).op) {
-                    let binaryOperatorToken = next as! OperatorToken
-                    expression = BinaryExpression(binaryOp: binaryOperatorToken.op, left: expression, right: parseExpression())
-                } else {
-                    putBackToken(token: next)
+                enterNewScope()
+                while true {
+                    resultStack.push(parsePrimaryExpression())
+                    let next = nextToken() as! OperatorToken
+                    if next.op == Operator.CloseParen {
+                        break
+                    }
+                    assert(BinaryOperatorTokens.contains(next.op), "Parser: expected a binary operator but got \(next.simpleDescription)")
+                    shuntinYardAlgorithm(newOperator: next.op)
                 }
-                expect(token: Operator.CloseParen)
+                let expression = joinExpressionsWithOperators()!
+                leaveScope()
                 return ParenthesizedExpression(exp: expression)
             } else if UnaryOperatorTokens.contains(currentOperatorToken.op) {
-                return UnaryExpression(unaryOp: currentOperatorToken.op, exp: parseExpression())
-//            } else if BinaryOperatorTokens.contains(currentOperatorToken.op) {
-//                assert(false, "Parser: not yet implemented")
-//                return BinaryExpression(binaryOp: currentOperatorToken.op, left: ?, right: parseExpression())
+                return UnaryExpression(unaryOp: currentOperatorToken.op, exp: parsePrimaryExpression())
             } else {
                 assert(false, "Parser: not yet implemented")
             }

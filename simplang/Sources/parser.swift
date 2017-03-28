@@ -147,9 +147,9 @@ class LetExpression : Expression {
     }
 
     func eval() -> (value: Int, newValues: [Int]?) {
-        PushBindingScope(bindings: bindings)
+        Memory.pushBindingScope(bindings: bindings)
         let result = exp.eval()
-        PopBindingScope(bindings: bindings)
+        Memory.popBindingScope(bindings: bindings)
         return result
     }
 
@@ -173,15 +173,15 @@ class LoopExpression : Expression {
     }
 
     func eval() -> (value: Int, newValues: [Int]?) {
-        PushBindingScope(bindings: bindings)
+        Memory.pushBindingScope(bindings: bindings)
         while true {
             let result = exp.eval()
             if result.newValues == nil {
-                PopBindingScope(bindings: bindings)
+                Memory.popBindingScope(bindings: bindings)
                 return result
             }
             for (index, binding) in bindings.enumerated() {
-                variableStack[binding.identifierName]?.update(topOfStack: result.newValues![index])
+                Memory.variableStack[binding.identifierName]?.update(topOfStack: result.newValues![index])
             }
         }
     }
@@ -220,27 +220,6 @@ class RecurExpression : Expression {
     }
 }
 
-func PushBindingScope(bindings: [Binding]) {
-    for binding in bindings {
-        if let _ = variableStack[binding.identifierName] {
-            variableStack[binding.identifierName]!.push(binding.exp.eval().value)
-        } else {
-            let stack = Stack<Int>()
-            stack.push(binding.exp.eval().value)
-            variableStack[binding.identifierName] = stack
-        }
-    }
-}
-
-func PopBindingScope(bindings: [Binding]) {
-    for binding in bindings {
-        _ = variableStack[binding.identifierName]!.pop()
-    }
-}
-
-
-var variableStack : [String: Stack<Int>] = [String: Stack<Int>]()
-
 class IdentifierExpression : Expression {
     var token : IdentifierToken
 
@@ -249,7 +228,7 @@ class IdentifierExpression : Expression {
     }
 
     func eval() -> (value: Int, newValues: [Int]?) {
-        return (value: variableStack[token.name]!.peek()!, newValues: nil)
+        return (value: Memory.variableStack[token.name]!.peek()!, newValues: nil)
     }
 
     func parserDescription(depth: Int) -> String {
@@ -273,6 +252,41 @@ class Binding : ParserPrintable {
     }
 }
 
+class Invocation : Expression {
+    var functionName : String
+    var params : [ParenthesizedExpression]
+
+    init(functionName: String, params: [ParenthesizedExpression]) {
+        self.functionName = functionName
+        self.params = params
+    }
+
+    func eval() -> (value: Int, newValues: [Int]?) {
+        let function = Memory.functions[functionName]!
+        assert(params.count == function.params.count, "Parser: invocation with the wrong number of parameters. Expected \(function.params.count), got \(params.count)")
+        var functionStack = [String : Stack<Int>]()
+        for (index, param) in params.enumerated() {
+            let stack = Stack<Int>()
+            stack.push(param.eval().value)
+            functionStack[function.params[index].token.name] = stack
+        }
+        Memory.variableStacks.push(functionStack)
+        let result = function.expression.eval().value
+        _ = Memory.variableStacks.pop()
+        return (value: result, newValues: nil)
+    }
+
+    func parserDescription(depth: Int) -> String {
+        var result = [String]()
+        result.append(spacingForDepth(depth: depth) + functionName)
+
+        for param in params {
+            result.append(param.parserDescription(depth: depth + 1))
+        }
+        return result.joined(separator: "\n")
+    }
+}
+
 class Function : ParserPrintable {
     var name : String
     var expression : Expression
@@ -284,9 +298,20 @@ class Function : ParserPrintable {
         self.params = params
     }
 
+    func evalWithParams(intParams: [Int]) -> Int {
+        var functionStack = [String: Stack<Int>]()
+        for (index, param) in intParams.enumerated() {
+            let stack = Stack<Int>()
+            stack.push(param)
+            functionStack[params[index].token.name] = stack
+        }
+        Memory.variableStacks.push(functionStack)
+        return expression.eval().value
+    }
+
     func parserDescription(depth: Int) -> String {
         var result = [String]()
-        result.append(spacingForDepth(depth: depth) + name)
+        result.append(spacingForDepth(depth: depth) + "func " + name)
         for param in params {
             result.append(spacingForDepth(depth: depth + 1) + param.token.name)
         }
@@ -295,28 +320,70 @@ class Function : ParserPrintable {
     }
 }
 
+class Memory {
+    public static var variableStacks : Stack<[String: Stack<Int>]> = Stack<[String: Stack<Int>]>()
+    public static var variableStack : [String: Stack<Int>] {
+        get {
+            return variableStacks.peek()!
+        }
+        set {
+            variableStacks.update(topOfStack: newValue)
+        }
+    }
+    public static var functions = [String : Function]()
+    public static var knownFunctions = [String : Bool]()
+
+    public static func pushBindingScope(bindings: [Binding]) {
+        for binding in bindings {
+            if let _ = variableStack[binding.identifierName] {
+                variableStack[binding.identifierName]!.push(binding.exp.eval().value)
+            } else {
+                let stack = Stack<Int>()
+                stack.push(binding.exp.eval().value)
+                variableStack[binding.identifierName] = stack
+            }
+        }
+    }
+
+    public static func popBindingScope(bindings: [Binding]) {
+        for binding in bindings {
+            _ = variableStack[binding.identifierName]!.pop()
+        }
+    }
+
+    public static func isAKnownFunction(token: IdentifierToken) -> Bool {
+        return knownFunctions[token.name] != nil
+    }
+}
+
 /******************************************
  *  Parser
  * *****************************************/
 
 class Parser {
-    public var functions = [String : Function]()
     private var tokens : [Token]
     public var syntaxTreeString: String {
         get {
             var result = [String]()
-            for (_, function) in functions {
+            for (_, function) in Memory.functions {
                 result.append(function.parserDescription(depth: 0))
             }
             return result.joined(separator: "\n")
         }
     }
+    public var expression : Expression?
 
-    init(tokens: [Token]) { // TODO: maybe pass a bool to tell the parser to only evaluate an expression vs. a program
+    init(tokens: [Token], parseExpression: Bool) {
         self.tokens = tokens
-        if tokens.count > 0 {
-            resultStacks.push(Stack<Expression>())
-            operatorStacks.push(Stack<Operator>())
+        if tokens.count == 0 {
+            return
+        }
+        resultStacks.push(Stack<Expression>())
+        operatorStacks.push(Stack<Operator>())
+        if parseExpression {
+            Memory.variableStacks.push([String: Stack<Int>]())
+            expression = parseBinaryExpression()
+        } else {
             createSyntaxTree()
         }
     }
@@ -422,11 +489,27 @@ class Parser {
         return bindings
     }
 
+    private func parseParams() -> [ParenthesizedExpression] {
+        var params = [ParenthesizedExpression]()
+
+        while true {
+            let expression = parsePrimaryExpression() // Note: this should not be parseBinaryExpression
+            params.append(expression as! ParenthesizedExpression)
+            if let next = peekNextToken() {
+                if next.type == TokenType.Operator && (next as! OperatorToken).op == Operator.OpenParen {
+                    continue
+                }
+            }
+            break;
+        }
+        return params
+    }
     /***************************** Parsing methods *********************************************************/
 
     private func parseFunction() {
         expect(token: Keyword.Let)
-        let functionName = nextToken() as! IdentifierToken
+        let functionNameToken = nextToken() as! IdentifierToken
+        Memory.knownFunctions[functionNameToken.name] = true // need to do this to accommodate recursive functions
 
         var params = [IdentifierExpression]()
         while peekNextToken()!.type == TokenType.Identifier {
@@ -438,7 +521,7 @@ class Parser {
         let expression = parseBinaryExpression()
         expect(token: Keyword.End)
 
-        functions[functionName.name] = Function(name: functionName.name, expression: expression, params: params)
+        Memory.functions[functionNameToken.name] = Function(name: functionNameToken.name, expression: expression, params: params)
     }
 
     private func parseBinaryExpression() -> Expression {
@@ -475,19 +558,7 @@ class Parser {
                 expect(token: Keyword.End)
                 return Keyword.Let == currentKeywordToken.keyword ? LetExpression(bindings: bindings, exp: expression) : LoopExpression(bindings: bindings, exp: expression)
             } else if Keyword.Recur == currentKeywordToken.keyword {
-                var args = [ParenthesizedExpression]()
-
-                while true {
-                    let expression = parsePrimaryExpression() // Note: this should not be parseBinaryExpression
-                    assert(expression is ParenthesizedExpression, "Parser: Expected parenthesized expression got \(expression.parserDescription(depth: 0))")
-                    args.append(expression as! ParenthesizedExpression)
-                    if let next = peekNextToken() {
-                        if next.type == TokenType.Operator && (next as! OperatorToken).op == Operator.OpenParen {
-                            continue
-                        }
-                    }
-                    break;
-                }
+                let args = parseParams()
                 return RecurExpression(args: args)
             } else {
                 assert(false, "Parser: not yet implemented")
@@ -514,7 +585,12 @@ class Parser {
                 assert(false, "Parser: not yet implemented")
             }
         case .Identifier:
-            return IdentifierExpression(token: currentToken as! IdentifierToken)
+            let currentIdentifierToken = currentToken as! IdentifierToken
+            if Memory.isAKnownFunction(token: currentIdentifierToken) {
+                let params = parseParams()
+                return Invocation(functionName: currentIdentifierToken.name, params: params)
+            }
+            return IdentifierExpression(token: currentIdentifierToken)
         }
     }
 }

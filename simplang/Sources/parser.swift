@@ -273,22 +273,46 @@ class Binding : ParserPrintable {
     }
 }
 
+class Function : ParserPrintable {
+    var name : String
+    var expression : Expression
+    var params : [IdentifierExpression]
+
+    init(name: String, expression: Expression, params: [IdentifierExpression]) {
+        self.name = name
+        self.expression = expression
+        self.params = params
+    }
+
+    func parserDescription(depth: Int) -> String {
+        var result = [String]()
+        result.append(spacingForDepth(depth: depth) + name)
+        for param in params {
+            result.append(spacingForDepth(depth: depth + 1) + param.token.name)
+        }
+        result.append(expression.parserDescription(depth: depth + 2))
+        return result.joined(separator: "\n")
+    }
+}
+
 /******************************************
  *  Parser
  * *****************************************/
 
 class Parser {
-    public var root : Expression?
+    public var functions = [String : Function]()
+    private var tokens : [Token]
     public var syntaxTreeString: String {
         get {
-            var result = ""
-            result = root == nil ? result : root!.parserDescription(depth: 0)
-            return result
+            var result = [String]()
+            for (_, function) in functions {
+                result.append(function.parserDescription(depth: 0))
+            }
+            return result.joined(separator: "\n")
         }
     }
-    private var tokens : [Token]
 
-    init(tokens: [Token]) {
+    init(tokens: [Token]) { // TODO: maybe pass a bool to tell the parser to only evaluate an expression vs. a program
         self.tokens = tokens
         if tokens.count > 0 {
             resultStacks.push(Stack<Expression>())
@@ -298,8 +322,12 @@ class Parser {
     }
 
     private func createSyntaxTree() {
-        root = parseBinaryExpression()
+        while tokens.count > 0 {
+            parseFunction()
+        }
     }
+
+    /***************************** Shunting yard algorithm *************************************************/
 
     private var resultStacks : Stack<Stack<Expression>> = Stack<Stack<Expression>>()
     private var operatorStacks : Stack<Stack<Operator>> = Stack<Stack<Operator>>()
@@ -337,6 +365,8 @@ class Parser {
         // the order of the operators in the enums reflect operator precedence
         return op.rawValue <= opOnTheStack.rawValue
     }
+
+    /***************************** Helper methods **********************************************************/
 
     private func createBinaryExpression() -> BinaryExpression {
         let op = operatorStack.pop()!
@@ -390,6 +420,25 @@ class Parser {
             }
         }
         return bindings
+    }
+
+    /***************************** Parsing methods *********************************************************/
+
+    private func parseFunction() {
+        expect(token: Keyword.Let)
+        let functionName = nextToken() as! IdentifierToken
+
+        var params = [IdentifierExpression]()
+        while peekNextToken()!.type == TokenType.Identifier {
+            params.append(IdentifierExpression(token: nextToken() as! IdentifierToken))
+        }
+        assert(params.count > 0, "Parser: functions must have at least one parameter")
+        expect(token: Operator.Assign)
+
+        let expression = parseBinaryExpression()
+        expect(token: Keyword.End)
+
+        functions[functionName.name] = Function(name: functionName.name, expression: expression, params: params)
     }
 
     private func parseBinaryExpression() -> Expression {

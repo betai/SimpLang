@@ -115,9 +115,9 @@ class BinaryExpression : Expression {
         case .LessThan:
             return left.eval().value < right.eval().value ? (value: 1, newValues: nil) : (value: 0, newValues: nil)
         case .Plus:
-            return (value: left.eval().value + right.eval().value, newValues: nil)
+            return (value: Int.addWithOverflow(left.eval().value, right.eval().value).0, newValues: nil)
         case .Multiply:
-            return (value: left.eval().value * right.eval().value, newValues: nil)
+            return (value: Int.multiplyWithOverflow(left.eval().value, right.eval().value).0, newValues: nil)
         case .Equals:
             return left.eval().value == right.eval().value ? (value: 1, newValues: nil) : (value: 0, newValues: nil)
         case .And:
@@ -306,7 +306,9 @@ class Function : ParserPrintable {
             functionStack[params[index].token.name] = stack
         }
         Memory.variableStacks.push(functionStack)
-        return expression.eval().value
+        let result = expression.eval().value
+        _ = Memory.variableStacks.pop()
+        return result
     }
 
     func parserDescription(depth: Int) -> String {

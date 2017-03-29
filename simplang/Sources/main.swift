@@ -7,7 +7,8 @@ func usage() {
     print(" simplang --parse foo.sl")
     print(" simplang --parse-exp foo.sl")
     print(" simplang --interpret foo.sl arg1 [args..]")
-    exit(0)
+    print(" simplang --invocation-list foo.sl arg1 [args..]")
+    exit(1)
 }
 
 if CommandLine.arguments.count < 3 {
@@ -37,9 +38,18 @@ if CommandLine.arguments.count < 3 {
             print("Warning: additional parameters ignored")
         }
         print("\(parser.expression!.parserDescription(depth: 0))")
-    } else if option == "--interpret" {
+    } else if option == "--interpret" || option == "--invocation-list" {
+        if CommandLine.arguments.count <= 3 {
+            print("Simplang: must pass at least 1 argument")
+            exit(1)
+        }
         if let main = Memory.functions["main"] {
-            print("\(main.evalWithParams(intParams: Array(CommandLine.arguments.dropFirst(3)).map {param in Int(param)!}))")
+            let result = main.evalWithParams(intParams: Array(CommandLine.arguments.dropFirst(3)).map{param in Int(param)!})
+            if option == "--interpret" {
+                print(result)
+            } else {
+                print(Debug.invocationList)
+            }
         } else {
             print("Error: missing main function")
         }

@@ -264,14 +264,23 @@ class Invocation : Expression {
     func eval() -> (value: Int, newValues: [Int]?) {
         let function = Memory.functions[functionName]!
         assert(params.count == function.params.count, "Parser: invocation with the wrong number of parameters. Expected \(function.params.count), got \(params.count)")
+
         var functionStack = [String : Stack<Int>]()
+        var debugArgs = [Int]()
         for (index, param) in params.enumerated() {
             let stack = Stack<Int>()
-            stack.push(param.eval().value)
+            let paramValue = param.eval().value
+            stack.push(paramValue)
+            debugArgs.append(paramValue)
             functionStack[function.params[index].token.name] = stack
         }
         Memory.variableStacks.push(functionStack)
+
+        Debug.addEntry(name: functionName, args: debugArgs , depth: Debug.currentDepth)
+        Debug.currentDepth += 1
         let result = function.expression.eval().value
+        Debug.currentDepth -= 1
+        Debug.addExit(name: functionName, args: debugArgs, depth: Debug.currentDepth, result: result)
         _ = Memory.variableStacks.pop()
         return (value: result, newValues: nil)
     }
@@ -300,13 +309,21 @@ class Function : ParserPrintable {
 
     func evalWithParams(intParams: [Int]) -> Int {
         var functionStack = [String: Stack<Int>]()
+        var debugArgs = [Int]()
         for (index, param) in intParams.enumerated() {
             let stack = Stack<Int>()
             stack.push(param)
+            debugArgs.append(param)
             functionStack[params[index].token.name] = stack
         }
         Memory.variableStacks.push(functionStack)
+
+        Debug.addEntry(name: name, args: debugArgs , depth: Debug.currentDepth)
+        Debug.currentDepth += 1
         let result = expression.eval().value
+        Debug.currentDepth -= 1
+        Debug.addExit(name: name, args: debugArgs, depth: Debug.currentDepth, result: result)
+
         _ = Memory.variableStacks.pop()
         return result
     }
@@ -358,6 +375,23 @@ class Memory {
     }
 }
 
+class Debug {
+    public static var invocationList : String {
+        get {
+            return invocations.joined(separator: "\n")
+        }
+    }
+    public static var currentDepth = 0
+    private static var invocations = [String]()
+
+    public static func addEntry(name: String, args: [Int], depth: Int) {
+        invocations.append(spacingForDepth(depth: depth) + name + " entry " + args.map{x in String(x)}.joined(separator: " "))
+    }
+
+    public static func addExit(name: String, args: [Int], depth: Int, result: Int) {
+        invocations.append(spacingForDepth(depth: depth) + name + " exit " + args.map{x in String(x)}.joined(separator: " ") + " -> " + String(result))
+    }
+}
 /******************************************
  *  Parser
  * *****************************************/

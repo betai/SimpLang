@@ -68,7 +68,7 @@ var KeywordStrings: [String] {
 
 enum Operator: Int {
     case Not = 1
-    case Negative, OpenParen, CloseParen, Assign, LessThan, Plus, Multiply, Equals, And, Or
+    case Negative, OpenParen, CloseParen, Assign, And, Or, Equals, LessThan, Plus, Multiply
     var simpleDescription: String {
         get {
             switch self {

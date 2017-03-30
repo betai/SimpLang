@@ -414,8 +414,6 @@ class Parser {
         if tokens.count == 0 {
             return
         }
-        resultStacks.push(Stack<Expression>())
-        operatorStacks.push(Stack<Operator>())
         if parseExpression {
             Memory.variableStacks.push([String: Stack<Int>]())
             expression = parseBinaryExpression()
@@ -561,6 +559,7 @@ class Parser {
     }
 
     private func parseBinaryExpression() -> Expression {
+        enterNewScope()
         while true {
             resultStack.push(parsePrimaryExpression())
             if peekNextToken() == nil || peekNextToken()!.type != TokenType.Operator || !BinaryOperatorTokens.contains((peekNextToken()! as! OperatorToken).op) {
@@ -569,7 +568,10 @@ class Parser {
             let op = (nextToken() as! OperatorToken).op
             shuntinYardAlgorithm(newOperator: op)
         }
-        return joinExpressionsWithOperators()!
+        let result = joinExpressionsWithOperators()!
+        leaveScope()
+
+        return result
     }
 
     private func parsePrimaryExpression() -> Expression {
@@ -602,18 +604,8 @@ class Parser {
         case .Operator:
             let currentOperatorToken = currentToken as! OperatorToken
             if Operator.OpenParen == currentOperatorToken.op {
-                enterNewScope()
-                while true {
-                    resultStack.push(parsePrimaryExpression())
-                    let next = nextToken() as! OperatorToken
-                    if next.op == Operator.CloseParen {
-                        break
-                    }
-                    assert(BinaryOperatorTokens.contains(next.op), "Parser: expected a binary operator but got \(next.simpleDescription)")
-                    shuntinYardAlgorithm(newOperator: next.op)
-                }
-                let expression = joinExpressionsWithOperators()!
-                leaveScope()
+                let expression = parseBinaryExpression()
+                expect(token: Operator.CloseParen)
                 return ParenthesizedExpression(exp: expression)
             } else if UnaryOperatorTokens.contains(currentOperatorToken.op) {
                 return UnaryExpression(unaryOp: currentOperatorToken.op, exp: parsePrimaryExpression())

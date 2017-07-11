@@ -88,6 +88,7 @@ class UnaryExpression : Expression {
             return (value: -evaluatedExp.value, newValues: nil)
         default:
             assert(false, "Expression: not a unary operation \(unaryOp.simpleDescription)")
+            return (value: 0, newValues: nil)
         }
     }
 
@@ -126,6 +127,7 @@ class BinaryExpression : Expression {
             return left.eval().value == 0 && right.eval().value == 0 ? (value: 0, newValues: nil) : (value: 1, newValues: nil)
         default:
             assert(false, "Expression: not a binary operation \(binaryOp.simpleDescription)")
+            return (value: 0, newValues: nil)
         }
     }
 
@@ -620,5 +622,7 @@ class Parser {
             }
             return IdentifierExpression(token: currentIdentifierToken)
         }
+        assert(false, "Parser: unsupported token type")
+        return IntegerExpression(token: IntegerToken(value: 0))
     }
 }

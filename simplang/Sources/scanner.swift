@@ -42,6 +42,7 @@ func KeywordFromString(name: String) -> Keyword {
         index += 1
     }
     assert(false, "Token: Tried to create keyword token with non-keyword string \(name)")
+    return Keyword(rawValue: 0)!
 }
 
 var _Keywords : [Keyword]?
@@ -108,6 +109,7 @@ func OperatorFromString(op: String) -> Operator {
         index += 1
     }
     assert(false, "Token: Tried to create operator token with non-operator string \(op)")
+    return Operator(rawValue: 0)!
 }
 
 var UnaryOperatorTokens : [Operator] {

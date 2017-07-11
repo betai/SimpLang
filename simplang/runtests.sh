@@ -13,5 +13,17 @@ echo interpret 1.5 -------------------------------------------------------------
 ../tests/test.py ../tests/interpreter-1.5 .build/release/simplang --interpret-exp
 echo parser 1.6 -------------------------------------------------------------------------
 ../tests/test.py ../tests/parser-1.6 .build/release/simplang --parse-exp
+echo interpret 1.7 -------------------------------------------------------------------------
+../tests/test.py ../tests/interpreter-1.7 .build/release/simplang --interpret-exp
+echo parser 1.8 -------------------------------------------------------------------------
+../tests/test.py ../tests/parser-1.8 .build/release/simplang --parse-exp
+echo interpret 1.9 -------------------------------------------------------------------------
+../tests/test.py ../tests/interpreter-1.9 .build/release/simplang --interpret-exp
+echo parser 1.10 -------------------------------------------------------------------------
+../tests/test.py ../tests/parser-1.10 .build/release/simplang --interpret-exp
+echo parser 1.11 -------------------------------------------------------------------------
+../tests/test.py ../tests/parser-1.11 .build/release/simplang --parse-func
+echo interpret 1.12 -------------------------------------------------------------------------
+../tests/test.py ../tests/interpreter-1.12 .build/release/simplang --interpret
 echo full test -------------------------------------------------------------------------
 ../tests/test.py ../tests/full .build/release/simplang --interpret

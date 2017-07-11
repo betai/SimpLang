@@ -191,7 +191,7 @@ class LoopExpression : Expression {
     func parserDescription(depth: Int) -> String {
         var result = [spacingForDepth(depth: depth) + Keyword.Loop.simpleDescription]
         for binding in bindings {
-            result.append(binding.parserDescription(depth: depth + 1))
+            result.append(binding.parserDescription(depth: depth + 2))
         }
         result.append(exp.parserDescription(depth: depth + 1))
         return result.joined(separator: "\n")
@@ -332,11 +332,12 @@ class Function : ParserPrintable {
 
     func parserDescription(depth: Int) -> String {
         var result = [String]()
-        result.append(spacingForDepth(depth: depth) + "func " + name)
+        result.append(spacingForDepth(depth: depth) + "function")
+        result.append(spacingForDepth(depth: depth + 2) + self.name)
         for param in params {
-            result.append(spacingForDepth(depth: depth + 1) + param.token.name)
+            result.append(spacingForDepth(depth: depth + 3) + param.token.name)
         }
-        result.append(expression.parserDescription(depth: depth + 2))
+        result.append(expression.parserDescription(depth: depth + 1))
         return result.joined(separator: "\n")
     }
 }
@@ -411,7 +412,7 @@ class Parser {
     }
     public var expression : Expression?
 
-    init(tokens: [Token], parseExpression: Bool) {
+    init(tokens: [Token], parseExpression: Bool, parseFunc: Bool) {
         self.tokens = tokens
         if tokens.count == 0 {
             return
@@ -419,6 +420,8 @@ class Parser {
         if parseExpression {
             Memory.variableStacks.push([String: Stack<Int>]())
             expression = parseBinaryExpression()
+        } else if parseFunc {
+            parseFunction()
         } else {
             createSyntaxTree()
         }
@@ -542,7 +545,7 @@ class Parser {
     }
     /***************************** Parsing methods *********************************************************/
 
-    private func parseFunction() {
+    public func parseFunction() {
         expect(token: Keyword.Let)
         let functionNameToken = nextToken() as! IdentifierToken
         Memory.knownFunctions[functionNameToken.name] = true // need to do this to accommodate recursive functions

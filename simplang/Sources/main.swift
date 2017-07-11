@@ -26,7 +26,7 @@ if CommandLine.arguments.count < 3 {
         exit(0)
     }
     
-    var parser = Parser(tokens: scanner.tokens, parseExpression: option.contains("-exp"))
+    var parser = Parser(tokens: scanner.tokens, parseExpression: option.contains("-exp"), parseFunc: option.contains("-func"))
 
     if option == "--parse" {
         if CommandLine.arguments.count != 3 {
@@ -38,7 +38,12 @@ if CommandLine.arguments.count < 3 {
             print("Warning: additional parameters ignored")
         }
         print("\(parser.expression!.parserDescription(depth: 0))")
-    } else if option == "--interpret" || option == "--invocation-list" {
+    } else if option == "--parse-func" {
+        if CommandLine.arguments.count != 3 {
+            print("Warning: additional parameters ignored")
+        }
+        print("\(Memory.functions.first!.value.parserDescription(depth: 0))")
+    }else if option == "--interpret" || option == "--invocation-list" {
         if CommandLine.arguments.count <= 3 {
             print("Simplang: must pass at least 1 argument")
             exit(1)

@@ -307,11 +307,11 @@ at the next instruction.
 #### `Call` *INS* *NUMBER* *DST*
 
 * Pushes the program counter (the index of the `Call` instruction) onto
-the call stack
+the call stack.
 
 * Adds *NUMBER* to the value stack pointer.
 
-* Transfers control to the instrution with index *INS*.
+* Transfers control to the instruction with index *INS*.
 
 The slot *DST* is used by the corresponding `Return` instruction to
 return the result.

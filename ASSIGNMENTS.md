@@ -549,6 +549,22 @@ within a function).  That's ok.  If you'd like to still be able to use
 those examples, you should preserve the ability to parse an `expr`
 that's not contained in a function.
 
+Input:
+
+    let main a b =
+	    a + b
+    end
+
+Output:
+
+    function
+	    main
+	      a
+		  b
+      +
+	    a
+		b
+
 ## Assignment 1.12
 
 Make your interpreter run the `main` function and pass command line
@@ -591,6 +607,49 @@ grammar:
 	arg = "(" expr ")"
     unop = "!" | "-"
 	binop = "&&" | "||" | "<" | "==" | "+" | "*"
+
+Input:
+
+	let add a b =
+	  a + b
+	end
+
+	let main a b =
+	  add (a) (b)
+	end
+
+Output:
+
+	function
+		bitset
+		  x
+		  i
+	  loop
+		  x
+			x
+		  i
+			i
+		if
+		  <
+			i
+			63
+		  recur
+			*
+			  x
+			  2
+			+
+			  i
+			  1
+		  <
+			x
+			0
+	function
+		main
+		  x
+		  i
+	  bitset
+		x
+		i
 
 ## Assignment 1.14
 
